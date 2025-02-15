@@ -1,5 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
-import { Doodler, Platform, GameState } from '../types/game';
+import { useEffect, useRef } from 'react';
 import doodlerRightImg from '../assets/doodler-right.png';
 import doodlerLeftImg from '../assets/doodler-left.png';
 import platformImg from '../assets/platform.png';
@@ -7,157 +6,304 @@ import bgImage from '../assets/doodlejumpbg.png';
 
 const DoodleGame = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [gameState, setGameState] = useState<GameState>({
+  
+  const gameRef = useRef({
+    // Canvas dimensions
+    boardWidth: 360,
+    boardHeight: 576,
+    
+    // Camera properties
+    cameraY: 0,
+    
+    // Doodler properties
+    doodlerWidth: 46,
+    doodlerHeight: 46,
+    doodler: {
+      img: null as HTMLImageElement | null,
+      x: 0,
+      y: 0,
+      worldY: 0, // Posición absoluta en el mundo
+      width: 46,
+      height: 46
+    },
+    
+    // Platform properties
+    platformWidth: 60,
+    platformHeight: 18,
+    platforms: [] as any[],
+    
+    // Physics
+    velocityX: 0,
+    velocityY: 0,
+    initialVelocityY: -5.5,
+    gravity: 0.2,
+    
+    // Game state
     score: 0,
     maxScore: 0,
-    gameOver: false
+    gameOver: false,
+    animationFrameId: 0,
+    
+    // Images
+    doodlerRightImg: new Image(),
+    doodlerLeftImg: new Image(),
+    platformImg: new Image()
   });
-
-  // Constantes del juego
-  const BOARD_WIDTH = 360;
-  const BOARD_HEIGHT = 576;
-  const DOODLER_WIDTH = 46;
-  const DOODLER_HEIGHT = 46;
-  const PLATFORM_WIDTH = 60;
-  const PLATFORM_HEIGHT = 18;
-  const INITIAL_VELOCITY_Y = -8;
-  const GRAVITY = 0.4;
-
-  // Referencias para las imágenes
-  const doodlerRight = new Image();
-  const doodlerLeft = new Image();
-  const platformImage = new Image();
-  
-  doodlerRight.src = doodlerRightImg;
-  doodlerLeft.src = doodlerLeftImg;
-  platformImage.src = platformImg;
-
-  // Estado del juego
-  const [doodler, setDoodler] = useState<Doodler>({
-    img: doodlerRight,
-    x: BOARD_WIDTH/2 - DOODLER_WIDTH/2,
-    y: BOARD_HEIGHT*7/8 - DOODLER_HEIGHT,
-    width: DOODLER_WIDTH,
-    height: DOODLER_HEIGHT
-  });
-
-  const [platforms, setPlatforms] = useState<Platform[]>([]);
-  const [velocityX, setVelocityX] = useState(0);
-  const [velocityY, setVelocityY] = useState(INITIAL_VELOCITY_Y);
 
   useEffect(() => {
+    const game = gameRef.current;
     const canvas = canvasRef.current;
     if (!canvas) return;
 
     const context = canvas.getContext('2d');
     if (!context) return;
 
-    // Inicializar el juego
-    const initGame = () => {
-      // Colocar plataformas iniciales
-      const initialPlatforms = [];
+    // Inicializa la posición del doodler
+    game.doodler.x = game.boardWidth / 2 - game.doodlerWidth / 2;
+    game.doodler.y = game.boardHeight * 7 / 8 - game.doodlerHeight;
+    game.doodler.worldY = game.doodler.y;
+
+    // Cargar imágenes
+    game.doodlerRightImg.src = doodlerRightImg;
+    game.doodlerLeftImg.src = doodlerLeftImg;
+    game.platformImg.src = platformImg;
+    game.doodler.img = game.doodlerRightImg;
+    game.velocityY = game.initialVelocityY;
+
+    // Coloca las plataformas iniciales
+    const placePlatforms = () => {
+      game.platforms = [];
       
-      // Plataforma inicial
-      initialPlatforms.push({
-        img: platformImage,
-        x: BOARD_WIDTH/2,
-        y: BOARD_HEIGHT - 50,
-        width: PLATFORM_WIDTH,
-        height: PLATFORM_HEIGHT
+      // Plataforma inicial (centrada)
+      game.platforms.push({
+        img: game.platformImg,
+        x: game.boardWidth / 2 - game.platformWidth / 2,
+        y: game.boardHeight - 50,
+        worldY: game.boardHeight - 50,
+        width: game.platformWidth,
+        height: game.platformHeight
       });
 
-      // Generar plataformas adicionales
+      // Genera plataformas adicionales
       for (let i = 0; i < 6; i++) {
-        const randomX = Math.floor(Math.random() * BOARD_WIDTH * 3/4);
-        initialPlatforms.push({
-          img: platformImage,
+        let randomX = Math.floor(Math.random() * (game.boardWidth * 3 / 4));
+        let worldY = game.boardHeight - 75 * i - 150;
+        game.platforms.push({
+          img: game.platformImg,
           x: randomX,
-          y: BOARD_HEIGHT - 75*i - 150,
-          width: PLATFORM_WIDTH,
-          height: PLATFORM_HEIGHT
+          y: worldY,
+          worldY: worldY,
+          width: game.platformWidth,
+          height: game.platformHeight
         });
       }
-
-      setPlatforms(initialPlatforms);
     };
 
-    initGame();
-  }, []);
+    const newPlatform = () => {
+      let randomX = Math.floor(Math.random() * (game.boardWidth * 3 / 4));
+      let worldY = game.platforms[game.platforms.length - 1].worldY - 75;
+      return {
+        img: game.platformImg,
+        x: randomX,
+        y: worldY,
+        worldY: worldY,
+        width: game.platformWidth,
+        height: game.platformHeight
+      };
+    };
 
-  // Game loop
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    const detectCollision = (a: any, b: any) => {
+      return (
+        a.x < b.x + b.width &&
+        a.x + a.width > b.x &&
+        a.worldY < b.worldY + b.height &&
+        a.worldY + a.height > b.worldY
+      );
+    };
 
-    const context = canvas.getContext('2d');
-    if (!context) return;
+    const updateScore = () => {
+      let points = Math.floor(50 * Math.random());
+      if (game.velocityY < 0) {
+        game.maxScore += points;
+        if (game.score < game.maxScore) {
+          game.score = game.maxScore;
+        }
+      } else if (game.velocityY >= 0) {
+        game.maxScore -= points;
+      }
+    };
 
-    let animationFrameId: number;
+    // Actualiza la cámara usando una zona muerta para evitar movimientos constantes
+    const updateCamera = () => {
+      const cameraThreshold = 150; // Umbral en píxeles desde la parte superior
+      // Calcula la posición en pantalla del doodler
+      game.doodler.y = game.doodler.worldY - game.cameraY;
+      
+      // Si el doodler se acerca demasiado a la parte superior, mueve la cámara
+      if (game.doodler.y < cameraThreshold) {
+        const diff = cameraThreshold - game.doodler.y;
+        game.cameraY -= diff; // Mueve la cámara para mantener al doodler en la zona visible
+      }
+      
+      // Actualiza las posiciones en pantalla de las plataformas
+      game.platforms.forEach(platform => {
+        platform.y = platform.worldY - game.cameraY;
+      });
+      
+      // Recalcula la posición en pantalla del doodler
+      game.doodler.y = game.doodler.worldY - game.cameraY;
+    };
 
     const update = () => {
-      if (gameState.gameOver) return;
-
-      context.clearRect(0, 0, BOARD_WIDTH, BOARD_HEIGHT);
-
-      // Actualizar posición del doodler
-      const newDoodler = { ...doodler };
-      newDoodler.x += velocityX;
-      
-      // Límites horizontales
-      if (newDoodler.x > BOARD_WIDTH) {
-        newDoodler.x = 0;
-      } else if (newDoodler.x + newDoodler.width < 0) {
-        newDoodler.x = BOARD_WIDTH;
+      if (game.gameOver) {
+        context.fillStyle = "black";
+        context.font = "16px sans-serif";
+        context.fillText(
+          "Game Over: Press 'Space' to Restart",
+          game.boardWidth / 7,
+          game.boardHeight * 7 / 8
+        );
+        game.animationFrameId = requestAnimationFrame(update);
+        return;
       }
 
-      setDoodler(newDoodler);
+      context.clearRect(0, 0, game.boardWidth, game.boardHeight);
 
-      // Dibujar todo
-      context.drawImage(newDoodler.img!, newDoodler.x, newDoodler.y, newDoodler.width, newDoodler.height);
+      // Actualiza posición horizontal del doodler
+      game.doodler.x += game.velocityX;
+      if (game.doodler.x > game.boardWidth) {
+        game.doodler.x = 0;
+      } else if (game.doodler.x + game.doodler.width < 0) {
+        game.doodler.x = game.boardWidth;
+      }
+
+      // Física vertical: aplicar gravedad y actualizar la posición absoluta
+      game.velocityY = Math.min(game.velocityY + game.gravity, 8);
+      game.doodler.worldY += game.velocityY;
+
+      // Actualiza la cámara según la posición del doodler (con zona muerta)
+      updateCamera();
+
+      // Condición de Game Over: si el doodler cae fuera de la vista
+      if (game.doodler.worldY > game.cameraY + game.boardHeight) {
+        game.gameOver = true;
+      }
       
-      platforms.forEach(platform => {
-        context.drawImage(platform.img!, platform.x, platform.y, platform.width, platform.height);
-      });
+      // Primero, dibuja las plataformas
+      for (let i = 0; i < game.platforms.length; i++) {
+        let platform = game.platforms[i];
 
-      animationFrameId = requestAnimationFrame(update);
+        // Dibuja solo las plataformas que están en pantalla
+        if (platform.y >= -platform.height && platform.y <= game.boardHeight) {
+          context.drawImage(
+            platform.img,
+            platform.x,
+            platform.y,
+            platform.width,
+            platform.height
+          );
+        }
+
+        // Detecta colisión solo cuando el doodler está cayendo
+        if (detectCollision(game.doodler, platform) && game.velocityY >= 0) {
+          game.velocityY = game.initialVelocityY;
+          game.doodler.worldY = platform.worldY - game.doodler.height;
+        }
+      }
+
+      // Ahora, dibuja el doodler sobre las plataformas
+      context.drawImage(
+        game.doodler.img!,
+        game.doodler.x,
+        game.doodler.y,
+        game.doodler.width,
+        game.doodler.height
+      );
+
+      // Elimina plataformas fuera de la vista y agrega nuevas
+      while (
+        game.platforms.length > 0 &&
+        game.platforms[0].worldY > game.cameraY + game.boardHeight
+      ) {
+        game.platforms.shift();
+        game.platforms.push(newPlatform());
+      }
+
+      updateScore();
+      context.fillStyle = "black";
+      context.font = "16px sans-serif";
+      context.fillText(game.score.toString(), 5, 20);
+
+      game.animationFrameId = requestAnimationFrame(update);
     };
 
-    update();
+    const moveDoodler = (e: KeyboardEvent) => {
+      if (e.code === "ArrowRight" || e.code === "KeyD") {
+        game.velocityX = 4;
+        game.doodler.img = game.doodlerRightImg;
+      } else if (e.code === "ArrowLeft" || e.code === "KeyA") {
+        game.velocityX = -4;
+        game.doodler.img = game.doodlerLeftImg;
+      } else if (e.code === "Space" && game.gameOver) {
+        if (game.animationFrameId) {
+          cancelAnimationFrame(game.animationFrameId);
+        }
+        // Reinicia el juego
+        game.doodler = {
+          img: game.doodlerRightImg,
+          x: game.boardWidth / 2 - game.doodlerWidth / 2,
+          y: game.boardHeight * 7 / 8 - game.doodlerHeight,
+          worldY: game.boardHeight * 7 / 8 - game.doodlerHeight,
+          width: game.doodlerWidth,
+          height: game.doodlerHeight
+        };
+        game.velocityX = 0;
+        game.velocityY = game.initialVelocityY;
+        game.score = 0;
+        game.maxScore = 0;
+        game.gameOver = false;
+        game.cameraY = 0;
+        placePlatforms();
+        
+        game.animationFrameId = requestAnimationFrame(update);
+      }
+    };
+
+    const stopDoodler = (e: KeyboardEvent) => {
+      if ((e.code === "ArrowRight" || e.code === "KeyD") && game.velocityX > 0) {
+        game.velocityX = 0;
+      } else if ((e.code === "ArrowLeft" || e.code === "KeyA") && game.velocityX < 0) {
+        game.velocityX = 0;
+      }
+    };
+
+    // Inicializa el juego
+    placePlatforms();
+    requestAnimationFrame(update);
+
+    // Event listeners
+    document.addEventListener("keydown", moveDoodler);
+    document.addEventListener("keyup", stopDoodler);
 
     return () => {
-      cancelAnimationFrame(animationFrameId);
-    };
-  }, [doodler, platforms, gameState.gameOver, velocityX]);
-
-  // Manejo de controles
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.code === "ArrowRight" || e.code === "KeyD") {
-        setVelocityX(4);
-        setDoodler(prev => ({ ...prev, img: doodlerRight }));
-      }
-      else if (e.code === "ArrowLeft" || e.code === "KeyA") {
-        setVelocityX(-4);
-        setDoodler(prev => ({ ...prev, img: doodlerLeft }));
-      }
-      else if (e.code === "Space" && gameState.gameOver) {
-        // Reiniciar juego
-        setGameState({ score: 0, maxScore: 0, gameOver: false });
-        // Reiniciar otras variables del juego...
+      document.removeEventListener("keydown", moveDoodler);
+      document.removeEventListener("keyup", stopDoodler);
+      if (game.animationFrameId) {
+        cancelAnimationFrame(game.animationFrameId);
       }
     };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [gameState.gameOver]);
+  }, []);
 
   return (
-    <div style={{ textAlign: 'center' }}>
+    <div className="flex justify-center items-center min-h-screen bg-gray-100">
       <canvas
         ref={canvasRef}
-        width={BOARD_WIDTH}
-        height={BOARD_HEIGHT}
-        style={{ backgroundImage: `url(${bgImage})` }}
+        width={gameRef.current.boardWidth}
+        height={gameRef.current.boardHeight}
+        style={{ 
+          backgroundImage: `url(${bgImage})`,
+          border: '2px solid #000'
+        }}
       />
     </div>
   );
