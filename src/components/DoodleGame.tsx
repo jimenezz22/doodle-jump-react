@@ -10,16 +10,16 @@ import bgImage5 from '../assets/space-bg-2.gif';
 
 const DoodleGame = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  
+
   const gameRef = useRef({
-    // Canvas dimensions
+    // Dimensiones del canvas
     boardWidth: 360,
     boardHeight: 576,
-    
-    // Camera properties
+
+    // Propiedades de la cámara
     cameraY: 0,
-    
-    // Doodler properties
+
+    // Propiedades del doodler
     doodlerWidth: 46,
     doodlerHeight: 46,
     doodler: {
@@ -28,47 +28,44 @@ const DoodleGame = () => {
       y: 0,
       worldY: 0,
       width: 46,
-      height: 46
+      height: 46,
     },
-    
-    // Platform properties
+
+    // Propiedades de las plataformas
     platformWidth: 60,
     platformHeight: 18,
     platforms: [] as any[],
-    
-    // Physics
+
+    // Física
     velocityX: 0,
     velocityY: 0,
     initialVelocityY: -5.5,
     gravity: 0.2,
-    
-    // Game state
+
+    // Estado del juego
     score: 0,
     maxScore: 0,
     gameOver: false,
     animationFrameId: 0,
-    
-    // Images
+
+    // Imágenes
     doodlerRightImg: new Image(),
     doodlerLeftImg: new Image(),
     platformImg: new Image(),
 
     // Sistema de puntuación
-    lastTouchedPlatform: null as any,
-    platformPoints: 10,
-    heightMultiplier: 0.1,
     touchedPlatforms: new Set() as Set<string>,
 
-    // Sistema de backgrounds
+    // Backgrounds (cada uno tiene un umbral de puntuación)
     backgrounds: {
       current: 0,
       images: [
         { img: bgImage1, scoreThreshold: 0 },
-        { img: bgImage2, scoreThreshold: 20 },
-        { img: bgImage3, scoreThreshold: 50 },
-        { img: bgImage4, scoreThreshold: 75 },
-        { img: bgImage5, scoreThreshold: 100 }
-      ]
+        { img: bgImage2, scoreThreshold: 5 },
+        { img: bgImage3, scoreThreshold: 10 },
+        { img: bgImage4, scoreThreshold: 15 },
+        { img: bgImage5, scoreThreshold: 20 },
+      ],
     },
   });
 
@@ -76,11 +73,10 @@ const DoodleGame = () => {
     const game = gameRef.current;
     const canvas = canvasRef.current;
     if (!canvas) return;
-
     const context = canvas.getContext('2d');
     if (!context) return;
 
-    // Inicializa la posición del doodler
+    // Inicialización del doodler
     game.doodler.x = game.boardWidth / 2 - game.doodlerWidth / 2;
     game.doodler.y = game.boardHeight * 7 / 8 - game.doodlerHeight;
     game.doodler.worldY = game.doodler.y;
@@ -89,12 +85,12 @@ const DoodleGame = () => {
     game.doodlerRightImg.src = doodlerRightImg;
     game.doodlerLeftImg.src = doodlerLeftImg;
     game.platformImg.src = platformImg;
+
     game.doodler.img = game.doodlerRightImg;
     game.velocityY = game.initialVelocityY;
 
+    // Actualiza el fondo según la puntuación y, por ende, el nivel de dificultad
     const updateBackground = (score: number) => {
-      if (!canvas) return;
-    
       let newBackgroundIndex = 0;
       for (let i = game.backgrounds.images.length - 1; i >= 0; i--) {
         if (score >= game.backgrounds.images[i].scoreThreshold) {
@@ -102,28 +98,26 @@ const DoodleGame = () => {
           break;
         }
       }
-    
       if (game.backgrounds.current !== newBackgroundIndex) {
         game.backgrounds.current = newBackgroundIndex;
         canvas.style.backgroundImage = `url(${game.backgrounds.images[newBackgroundIndex].img})`;
       }
     };
-    
 
     const placePlatforms = () => {
       game.platforms = [];
-      
-      // Plataforma inicial
+
+      // Plataforma inicial (siempre normal)
       game.platforms.push({
         img: game.platformImg,
         x: game.boardWidth / 2 - game.platformWidth / 2,
         y: game.boardHeight - 50,
         worldY: game.boardHeight - 50,
         width: game.platformWidth,
-        height: game.platformHeight
+        height: game.platformHeight,
       });
 
-      // Plataformas adicionales
+      // Plataformas iniciales adicionales
       for (let i = 0; i < 6; i++) {
         let randomX = Math.floor(Math.random() * (game.boardWidth * 3 / 4));
         let worldY = game.boardHeight - 75 * i - 150;
@@ -133,21 +127,26 @@ const DoodleGame = () => {
           y: worldY,
           worldY: worldY,
           width: game.platformWidth,
-          height: game.platformHeight
+          height: game.platformHeight,
         });
       }
     };
 
     const newPlatform = () => {
       let randomX = Math.floor(Math.random() * (game.boardWidth * 3 / 4));
-      let worldY = game.platforms[game.platforms.length - 1].worldY - 75;
+      const baseGap = 75;
+      // Se usa el índice del background para aumentar la dificultad
+      const difficultyMultiplier = 1 + game.backgrounds.current * 0.2;
+      const gapIncrement = game.score * 0.2 * difficultyMultiplier;
+      let worldY = game.platforms[game.platforms.length - 1].worldY - (baseGap + gapIncrement);
+
       return {
         img: game.platformImg,
         x: randomX,
-        y: worldY,
+        y: worldY - game.cameraY,
         worldY: worldY,
         width: game.platformWidth,
-        height: game.platformHeight
+        height: game.platformHeight,
       };
     };
 
@@ -162,13 +161,10 @@ const DoodleGame = () => {
 
     const updateScore = (platform: any) => {
       const platformId = `${platform.worldY}`;
-      
       if (!game.touchedPlatforms.has(platformId)) {
         game.score += 1;
         game.maxScore = Math.max(game.score, game.maxScore);
         game.touchedPlatforms.add(platformId);
-        
-        // Actualiza el fondo después de modificar la puntuación
         updateBackground(game.score);
       }
     };
@@ -176,16 +172,13 @@ const DoodleGame = () => {
     const updateCamera = () => {
       const cameraThreshold = 150;
       game.doodler.y = game.doodler.worldY - game.cameraY;
-      
       if (game.doodler.y < cameraThreshold) {
         const diff = cameraThreshold - game.doodler.y;
         game.cameraY -= diff;
       }
-      
       game.platforms.forEach(platform => {
         platform.y = platform.worldY - game.cameraY;
       });
-      
       game.doodler.y = game.doodler.worldY - game.cameraY;
     };
 
@@ -204,7 +197,7 @@ const DoodleGame = () => {
 
       context.clearRect(0, 0, game.boardWidth, game.boardHeight);
 
-      // Actualiza posición horizontal
+      // Actualiza la posición horizontal
       game.doodler.x += game.velocityX;
       if (game.doodler.x > game.boardWidth) {
         game.doodler.x = 0;
@@ -212,21 +205,24 @@ const DoodleGame = () => {
         game.doodler.x = game.boardWidth;
       }
 
+      // Ajusta la dificultad según el background actual
+      const difficultyMultiplier = 1 + game.backgrounds.current * 0.2;
+      const currentGravity = game.gravity * difficultyMultiplier;
+
       // Física vertical
-      game.velocityY = Math.min(game.velocityY + game.gravity, 8);
+      game.velocityY = Math.min(game.velocityY + currentGravity, 8);
       game.doodler.worldY += game.velocityY;
 
       updateCamera();
 
-      // Game Over si el doodler cae
+      // Game Over si el doodler cae fuera de la vista
       if (game.doodler.worldY > game.cameraY + game.boardHeight) {
         game.gameOver = true;
       }
-      
-      // Dibuja plataformas
+
+      // Dibuja y verifica colisiones con cada plataforma
       for (let i = 0; i < game.platforms.length; i++) {
         let platform = game.platforms[i];
-
         if (platform.y >= -platform.height && platform.y <= game.boardHeight) {
           context.drawImage(
             platform.img,
@@ -253,7 +249,7 @@ const DoodleGame = () => {
         game.doodler.height
       );
 
-      // Manejo de plataformas
+      // Repone plataformas que salen de la vista
       while (
         game.platforms.length > 0 &&
         game.platforms[0].worldY > game.cameraY + game.boardHeight
@@ -284,7 +280,7 @@ const DoodleGame = () => {
         game.touchedPlatforms.clear();
         game.backgrounds.current = 0;
         canvas.style.backgroundImage = `url(${game.backgrounds.images[0].img})`;
-        
+
         if (game.animationFrameId) {
           cancelAnimationFrame(game.animationFrameId);
         }
@@ -295,15 +291,15 @@ const DoodleGame = () => {
           y: game.boardHeight * 7 / 8 - game.doodlerHeight,
           worldY: game.boardHeight * 7 / 8 - game.doodlerHeight,
           width: game.doodlerWidth,
-          height: game.doodlerHeight
+          height: game.doodlerHeight,
         };
-        
+
         game.velocityX = 0;
         game.velocityY = game.initialVelocityY;
         game.gameOver = false;
         game.cameraY = 0;
         placePlatforms();
-        
+
         game.animationFrameId = requestAnimationFrame(update);
       }
     };
@@ -339,12 +335,12 @@ const DoodleGame = () => {
         ref={canvasRef}
         width={gameRef.current.boardWidth}
         height={gameRef.current.boardHeight}
-        style={{ 
+        style={{
           backgroundImage: `url(${bgImage1})`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           backgroundRepeat: 'no-repeat',
-          border: '2px solid #000'
+          border: '2px solid #000',
         }}
       />
     </div>
