@@ -47,7 +47,13 @@ const DoodleGame = () => {
     // Images
     doodlerRightImg: new Image(),
     doodlerLeftImg: new Image(),
-    platformImg: new Image()
+    platformImg: new Image(),
+
+    // Nuevas propiedades para el sistema de puntuación
+    lastTouchedPlatform: null as any,
+    platformPoints: 10, // Puntos base por tocar una plataforma
+    heightMultiplier: 0.1, // Multiplicador de puntos basado en la altura
+    touchedPlatforms: new Set() as Set<string>,
   });
 
   useEffect(() => {
@@ -121,15 +127,18 @@ const DoodleGame = () => {
       );
     };
 
-    const updateScore = () => {
-      let points = Math.floor(50 * Math.random());
-      if (game.velocityY < 0) {
-        game.maxScore += points;
-        if (game.score < game.maxScore) {
-          game.score = game.maxScore;
-        }
-      } else if (game.velocityY >= 0) {
-        game.maxScore -= points;
+    const updateScore = (platform: any) => {
+      // Crea un identificador único para la plataforma basado en su posición mundial
+      const platformId = `${platform.worldY}`; // Usando la posición Y como identificador
+      
+      // Solo actualiza la puntuación si no hemos tocado esta plataforma antes
+      if (!game.touchedPlatforms.has(platformId)) {
+        // Aumenta la puntuación en 1
+        game.score += 1;
+        game.maxScore = Math.max(game.score, game.maxScore);
+        
+        // Marca esta plataforma como tocada
+        game.touchedPlatforms.add(platformId);
       }
     };
 
@@ -208,6 +217,7 @@ const DoodleGame = () => {
         if (detectCollision(game.doodler, platform) && game.velocityY >= 0) {
           game.velocityY = game.initialVelocityY;
           game.doodler.worldY = platform.worldY - game.doodler.height;
+          updateScore(platform);
         }
       }
 
@@ -229,7 +239,6 @@ const DoodleGame = () => {
         game.platforms.push(newPlatform());
       }
 
-      updateScore();
       context.fillStyle = "black";
       context.font = "16px sans-serif";
       context.fillText(game.score.toString(), 5, 20);
@@ -245,6 +254,9 @@ const DoodleGame = () => {
         game.velocityX = -4;
         game.doodler.img = game.doodlerLeftImg;
       } else if (e.code === "Space" && game.gameOver) {
+        game.score = 0;
+        game.maxScore = 0;
+        game.touchedPlatforms.clear();
         if (game.animationFrameId) {
           cancelAnimationFrame(game.animationFrameId);
         }
