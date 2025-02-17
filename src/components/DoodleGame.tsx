@@ -39,8 +39,8 @@ const DoodleGame = () => {
     // Física
     velocityX: 0,
     velocityY: 0,
-    initialVelocityY: -5.5,
-    gravity: 0.2,
+    initialVelocityY: -2.5,
+    gravity: 0.03,
 
     // Estado del juego
     score: 0,
