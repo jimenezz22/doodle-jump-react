@@ -27,7 +27,7 @@ const DoodleGame = () => {
       x: 0,
       y: 0,
       worldY: 0,
-      width:60,
+      width: 60,
       height: 60,
     },
 
@@ -73,23 +73,22 @@ const DoodleGame = () => {
     const game = gameRef.current;
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const context = canvas.getContext('2d');
+    const context = canvas.getContext("2d");
     if (!context) return;
 
     // Inicialización del doodler
     game.doodler.x = game.boardWidth / 2 - game.doodlerWidth / 2;
-    game.doodler.y = game.boardHeight * 7 / 8 - game.doodlerHeight;
+    game.doodler.y = (game.boardHeight * 7) / 8 - game.doodlerHeight;
     game.doodler.worldY = game.doodler.y;
 
     // Cargar imágenes
     game.doodlerRightImg.src = doodlerRightImg;
     game.doodlerLeftImg.src = doodlerLeftImg;
     game.platformImg.src = platformImg;
-
     game.doodler.img = game.doodlerRightImg;
     game.velocityY = game.initialVelocityY;
 
-    // Actualiza el fondo según la puntuación y, por ende, el nivel de dificultad
+    // Actualiza el fondo según la puntuación
     const updateBackground = (score: number) => {
       let newBackgroundIndex = 0;
       for (let i = game.backgrounds.images.length - 1; i >= 0; i--) {
@@ -106,8 +105,7 @@ const DoodleGame = () => {
 
     const placePlatforms = () => {
       game.platforms = [];
-
-      // Plataforma inicial (siempre normal)
+      // Plataforma inicial
       game.platforms.push({
         img: game.platformImg,
         x: game.boardWidth / 2 - game.platformWidth / 2,
@@ -116,10 +114,9 @@ const DoodleGame = () => {
         width: game.platformWidth,
         height: game.platformHeight,
       });
-
-      // Plataformas iniciales adicionales
+      // Plataformas adicionales
       for (let i = 0; i < 6; i++) {
-        let randomX = Math.floor(Math.random() * (game.boardWidth * 3 / 4));
+        let randomX = Math.floor(Math.random() * (game.boardWidth * 0.75));
         let worldY = game.boardHeight - 75 * i - 150;
         game.platforms.push({
           img: game.platformImg,
@@ -133,13 +130,13 @@ const DoodleGame = () => {
     };
 
     const newPlatform = () => {
-      let randomX = Math.floor(Math.random() * (game.boardWidth * 3 / 4));
+      let randomX = Math.floor(Math.random() * (game.boardWidth * 0.75));
       const baseGap = 75;
-      // Se usa el índice del background para aumentar la dificultad
       const difficultyMultiplier = 1 + game.backgrounds.current * 0.2;
       const gapIncrement = game.score * 0.2 * difficultyMultiplier;
-      let worldY = game.platforms[game.platforms.length - 1].worldY - (baseGap + gapIncrement);
-
+      let worldY =
+        game.platforms[game.platforms.length - 1].worldY -
+        (baseGap + gapIncrement);
       return {
         img: game.platformImg,
         x: randomX,
@@ -176,10 +173,62 @@ const DoodleGame = () => {
         const diff = cameraThreshold - game.doodler.y;
         game.cameraY -= diff;
       }
-      game.platforms.forEach(platform => {
+      game.platforms.forEach((platform) => {
         platform.y = platform.worldY - game.cameraY;
       });
       game.doodler.y = game.doodler.worldY - game.cameraY;
+    };
+
+    // Función auxiliar para dibujar un rectángulo redondeado
+    const roundRect = (
+      ctx: CanvasRenderingContext2D,
+      x: number,
+      y: number,
+      width: number,
+      height: number,
+      radius: number,
+      fill: boolean,
+      stroke: boolean
+    ) => {
+      ctx.beginPath();
+      ctx.moveTo(x + radius, y);
+      ctx.lineTo(x + width - radius, y);
+      ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+      ctx.lineTo(x + width, y + height - radius);
+      ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+      ctx.lineTo(x + radius, y + height);
+      ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+      ctx.lineTo(x, y + radius);
+      ctx.quadraticCurveTo(x, y, x + radius, y);
+      ctx.closePath();
+      if (fill) ctx.fill();
+      if (stroke) ctx.stroke();
+    };
+
+    // Función para dibujar la tarjeta de puntuación en el canvas
+    const drawScoreCard = () => {
+      const cardX = 5;
+      const cardY = 5;
+      const cardWidth = 60;
+      const cardHeight = 30;
+      const radius = 10;
+
+      // Fondo semitransparente del card
+      context.fillStyle = "rgba(255, 255, 255, 0.8)";
+      roundRect(context, cardX, cardY, cardWidth, cardHeight, radius, true, false);
+
+      // Borde del card
+      context.strokeStyle = "black";
+      roundRect(context, cardX, cardY, cardWidth, cardHeight, radius, false, true);
+
+      // Texto de la puntuación centrado
+      context.fillStyle = "black";
+      context.font = "16px sans-serif";
+      const text = game.score.toString();
+      const textWidth = context.measureText(text).width;
+      const textX = cardX + (cardWidth - textWidth) / 2;
+      const textY = cardY + cardHeight / 2 + 6; // Ajuste vertical aproximado
+      context.fillText(text, textX, textY);
     };
 
     const update = () => {
@@ -187,9 +236,9 @@ const DoodleGame = () => {
         context.fillStyle = "black";
         context.font = "16px sans-serif";
         context.fillText(
-          "Game Over: Press 'Space' to Restart",
+          "Game Over: Presiona 'Space' para Reiniciar",
           game.boardWidth / 7,
-          game.boardHeight * 7 / 8
+          (game.boardHeight * 7) / 8
         );
         game.animationFrameId = requestAnimationFrame(update);
         return;
@@ -197,7 +246,7 @@ const DoodleGame = () => {
 
       context.clearRect(0, 0, game.boardWidth, game.boardHeight);
 
-      // Actualiza la posición horizontal
+      // Actualiza la posición horizontal del doodler
       game.doodler.x += game.velocityX;
       if (game.doodler.x > game.boardWidth) {
         game.doodler.x = 0;
@@ -205,17 +254,15 @@ const DoodleGame = () => {
         game.doodler.x = game.boardWidth;
       }
 
-      // Ajusta la dificultad según el background actual
+      // Ajusta la física vertical
       const difficultyMultiplier = 1 + game.backgrounds.current * 0.2;
       const currentGravity = game.gravity * difficultyMultiplier;
-
-      // Física vertical
       game.velocityY = Math.min(game.velocityY + currentGravity, 8);
       game.doodler.worldY += game.velocityY;
 
       updateCamera();
 
-      // Game Over si el doodler cae fuera de la vista
+      // Comprueba si se produjo Game Over
       if (game.doodler.worldY > game.cameraY + game.boardHeight) {
         game.gameOver = true;
       }
@@ -232,7 +279,6 @@ const DoodleGame = () => {
             platform.height
           );
         }
-
         if (detectCollision(game.doodler, platform) && game.velocityY >= 0) {
           game.velocityY = game.initialVelocityY;
           game.doodler.worldY = platform.worldY - game.doodler.height;
@@ -258,10 +304,8 @@ const DoodleGame = () => {
         game.platforms.push(newPlatform());
       }
 
-      // Dibuja la puntuación
-      context.fillStyle = "black";
-      context.font = "16px sans-serif";
-      context.fillText(game.score.toString(), 5, 20);
+      // Dibuja la tarjeta (card) de la puntuación sobre el canvas
+      drawScoreCard();
 
       game.animationFrameId = requestAnimationFrame(update);
     };
@@ -288,8 +332,8 @@ const DoodleGame = () => {
         game.doodler = {
           img: game.doodlerRightImg,
           x: game.boardWidth / 2 - game.doodlerWidth / 2,
-          y: game.boardHeight * 7 / 8 - game.doodlerHeight,
-          worldY: game.boardHeight * 7 / 8 - game.doodlerHeight,
+          y: (game.boardHeight * 7) / 8 - game.doodlerHeight,
+          worldY: (game.boardHeight * 7) / 8 - game.doodlerHeight,
           width: game.doodlerWidth,
           height: game.doodlerHeight,
         };
@@ -312,11 +356,8 @@ const DoodleGame = () => {
       }
     };
 
-    // Inicialización
     placePlatforms();
     requestAnimationFrame(update);
-
-    // Event listeners
     document.addEventListener("keydown", moveDoodler);
     document.addEventListener("keyup", stopDoodler);
 
@@ -337,10 +378,10 @@ const DoodleGame = () => {
         height={gameRef.current.boardHeight}
         style={{
           backgroundImage: `url(${bgImage1})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundRepeat: 'no-repeat',
-          border: '2px solid #000',
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundRepeat: "no-repeat",
+          border: "2px solid #000",
         }}
       />
     </div>
