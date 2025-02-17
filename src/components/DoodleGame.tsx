@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
-import doodlerRightImg from '../assets/doodler-right.png';
-import doodlerLeftImg from '../assets/doodler-left.png';
+import doodlerRightImg from '../assets/BabyWolf-idle.gif';
+import doodlerLeftImg from '../assets/BabyWolf-idle.gif';
 import platformImg from '../assets/platform.png';
 import bgImage1 from '../assets/sky-bg.gif';
 import bgImage2 from '../assets/sky-bg-2.gif';
@@ -27,8 +27,8 @@ const DoodleGame = () => {
       x: 0,
       y: 0,
       worldY: 0,
-      width: 46,
-      height: 46,
+      width:60,
+      height: 60,
     },
 
     // Propiedades de las plataformas
