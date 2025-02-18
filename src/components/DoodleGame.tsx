@@ -26,7 +26,7 @@ const canvasContainerStyle: React.CSSProperties = {
   overflow: 'hidden',
 };
 
-const DoodleGame = ({ className = '', style = {} }: { className?: string, style?: React.CSSProperties }) => {
+const DoodleGame = ({ className = '', style = {}, onScoreUpdate }: { className?: string, style?: React.CSSProperties, onScoreUpdate?: (score: number) => void  }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const gameRef = useRef({
@@ -185,6 +185,10 @@ const DoodleGame = ({ className = '', style = {} }: { className?: string, style?
         game.touchedPlatforms.add(platformId);
         updateBackground(game.score);
       }
+      // Notificar al componente padre sobre la actualización de la puntuación
+      if (onScoreUpdate) {
+        onScoreUpdate(game.score);
+      }
     };
 
     const updateCamera = () => {
@@ -261,6 +265,12 @@ const DoodleGame = ({ className = '', style = {} }: { className?: string, style?
           game.boardWidth / 7,
           (game.boardHeight * 7) / 8
         );
+
+        // Notificar al componente padre sobre la puntuación final
+        if (onScoreUpdate) {
+          onScoreUpdate(game.score);
+        }
+
         game.animationFrameId = requestAnimationFrame(update);
         return;
       }

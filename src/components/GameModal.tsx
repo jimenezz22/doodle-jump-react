@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import DoodleGame from '../components/DoodleGame';
+import DoodleGame from '../components/DoodleGame'; // Asegúrate de que la ruta sea correcta
 
 const modalOverlayStyle: React.CSSProperties = {
   position: 'fixed',
@@ -68,15 +68,25 @@ interface GameModalProps {
 
 const GameModal: React.FC<GameModalProps> = ({ isOpen, onClose }) => {
   const [isGameActive, setIsGameActive] = useState(false);
+  const [currentScore, setCurrentScore] = useState(0);
+  const [highScore, setHighScore] = useState(0);
 
   if (!isOpen) return null;
 
   const handlePlayClick = () => {
     setIsGameActive(true);
+    setCurrentScore(0);
   };
 
   const handleStopGame = () => {
     setIsGameActive(false);
+  };
+  
+  const handleScoreUpdate = (score: number) => {
+    setCurrentScore(score);
+    if (score > highScore) {
+      setHighScore(score);
+    }
   };
 
   return (
@@ -87,7 +97,29 @@ const GameModal: React.FC<GameModalProps> = ({ isOpen, onClose }) => {
         {!isGameActive ? (
           <>
             <h2 style={titleStyle}>Doodle Jump</h2>
+            {currentScore > 0 && (
+              <div style={{ 
+                marginBottom: '15px', 
+                padding: '10px', 
+                backgroundColor: currentScore > highScore/2 ? '#e8f5e9' : '#f5f5f5',
+                borderRadius: '8px',
+                border: currentScore === highScore ? '2px solid #4CAF50' : 'none'
+              }}>
+                <p style={{ margin: '0 0 5px 0', fontWeight: 'bold' }}>
+                  {currentScore === highScore ? '¡Nueva mejor puntuación!' : 'Puntuación final'}
+                </p>
+                <p style={{ margin: '0', fontSize: '24px', color: '#333' }}>{currentScore}</p>
+                {currentScore === highScore && (
+                  <p style={{ margin: '5px 0 0 0', color: '#4CAF50', fontSize: '14px' }}>
+                    ¡Felicidades! Has superado tu mejor marca.
+                  </p>
+                )}
+              </div>
+            )}
             <p>¡Prepárate para jugar! Usa las flechas para moverte.</p>
+            <div style={{ marginTop: '10px', fontSize: '14px', color: '#666' }}>
+              Mejor puntuación: <strong>{highScore}</strong>
+            </div>
             <button 
               style={buttonStyle} 
               onClick={handlePlayClick}
@@ -105,7 +137,27 @@ const GameModal: React.FC<GameModalProps> = ({ isOpen, onClose }) => {
           </>
         ) : (
           <div style={gameContainerStyle}>
-            <DoodleGame />
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+              <div style={{ 
+                padding: '5px 10px', 
+                backgroundColor: '#f9f9f9', 
+                borderRadius: '4px', 
+                boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                fontSize: '14px'
+              }}>
+                Puntuación actual: <strong>{currentScore}</strong>
+              </div>
+              <div style={{ 
+                padding: '5px 10px', 
+                backgroundColor: '#f9f9f9', 
+                borderRadius: '4px', 
+                boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                fontSize: '14px'
+              }}>
+                Mejor puntuación: <strong>{highScore}</strong>
+              </div>
+            </div>
+            <DoodleGame onScoreUpdate={handleScoreUpdate} />
             <button 
               style={{
                 ...buttonStyle,
