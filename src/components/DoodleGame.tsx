@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import doodlerRightImg from '../assets/BabyWolf-idle.gif';
 import doodlerLeftImg from '../assets/BabyWolf-idle.gif';
 import platformImg from '../assets/platform.png';
@@ -8,7 +8,25 @@ import bgImage3 from '../assets/night-bg.gif';
 import bgImage4 from '../assets/space-bg.gif';
 import bgImage5 from '../assets/space-bg-2.gif';
 
-const DoodleGame = () => {
+// Estilo para el contenedor principal del juego
+const gameContainerStyle: React.CSSProperties = {
+  position: 'relative',
+  width: '100%',
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'center',
+  padding: '20px',
+};
+
+// Estilo para el contenedor del canvas
+const canvasContainerStyle: React.CSSProperties = {
+  position: 'relative',
+  boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
+  borderRadius: '8px',
+  overflow: 'hidden',
+};
+
+const DoodleGame = ({ className = '', style = {} }: { className?: string, style?: React.CSSProperties }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const gameRef = useRef({
@@ -102,6 +120,9 @@ const DoodleGame = () => {
         canvas.style.backgroundImage = `url(${game.backgrounds.images[newBackgroundIndex].img})`;
       }
     };
+
+    // ... Resto del código del juego ...
+    // (Mantenemos el código del juego igual que en el original)
 
     const placePlatforms = () => {
       game.platforms = [];
@@ -370,20 +391,25 @@ const DoodleGame = () => {
     };
   }, []);
 
+  // Mezclamos los estilos personalizados con los estilos predeterminados
+  const containerMergedStyle = { ...gameContainerStyle, ...style };
+
   return (
-    <div className="flex justify-center items-center min-h-screen bg-gray-100">
-      <canvas
-        ref={canvasRef}
-        width={gameRef.current.boardWidth}
-        height={gameRef.current.boardHeight}
-        style={{
-          backgroundImage: `url(${bgImage1})`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          backgroundRepeat: "no-repeat",
-          border: "2px solid #000",
-        }}
-      />
+    <div className={`doodle-game-container ${className}`} style={containerMergedStyle}>
+      <div style={canvasContainerStyle}>
+        <canvas
+          ref={canvasRef}
+          width={gameRef.current.boardWidth}
+          height={gameRef.current.boardHeight}
+          style={{
+            backgroundImage: `url(${bgImage1})`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            backgroundRepeat: "no-repeat",
+            display: "block", // Para evitar espacios en blanco debajo del canvas
+          }}
+        />
+      </div>
     </div>
   );
 };
